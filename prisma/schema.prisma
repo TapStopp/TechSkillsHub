@@ -1,0 +1,441 @@
+// TechSkillsHub Prisma schema — PostgreSQL.
+// Run: npx prisma migrate dev  then  npx prisma db seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  STUDENT
+  FACULTY
+  ALUMNI
+  INDUSTRY_PARTNER
+  ADMIN
+  ORG_LEADER
+}
+
+enum EventCategory {
+  WORKSHOP
+  CAREER_FAIR
+  TECH_TALK
+  HACKATHON
+  CLUB_MEETING
+  INTERVIEW_PREP
+  NETWORKING
+  SERVICE
+  SOCIAL
+}
+
+enum RsvpStatus {
+  GOING
+  WAITLIST
+  CANCELLED
+}
+
+enum CheckInMethod {
+  QR
+  MOBILE
+  REMOTE
+  MANUAL
+}
+
+enum CredentialStatus {
+  SAVED
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MentorshipKind {
+  RESEARCH
+  INTERNSHIP
+  PORTFOLIO_REVIEW
+  CAREER_GUIDANCE
+  MOCK_INTERVIEW
+}
+
+enum ApplicationStatus {
+  APPLIED
+  ACCEPTED
+  DECLINED
+  MATCHED
+}
+
+// ---------------------------------------------------------------------------
+// Core identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  role          UserRole  @default(STUDENT)
+  avatarColor   String    @default("#a4123f")
+  title         String?
+  company       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  studentProfile StudentProfile?
+  memberships    Membership[]
+  rsvps          Rsvp[]
+  checkIns       CheckIn[]
+  reflections    Reflection[]
+  userBadges     UserBadge[]
+  pathwayProgress UserPathwayProgress[]
+  competencyProgress UserCompetencyProgress[]
+  userCredentials UserCredential[]
+  portfolioItems PortfolioItem[]
+  mentorshipApplications MentorshipApplication[]
+  mentorshipOffered MentorshipOpportunity[] @relation("MentorOpportunities")
+  interviewBookings InterviewBooking[]
+  interviewSlots InterviewSlot[] @relation("InterviewerSlots")
+  transcriptEntries TranscriptEntry[]
+  xpTransactions XpTransaction[]
+}
+
+model StudentProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  major        String
+  gradYear     Int
+  careerTrack  String
+  interests    String[]
+  summary      String?
+  totalXp      Int      @default(0)
+  level        Int      @default(1)
+  serviceHours Float    @default(0)
+}
+
+// ---------------------------------------------------------------------------
+// Organizations & membership
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  category    String
+  logoColor   String   @default("#a4123f")
+  memberCount Int      @default(0)
+
+  memberships Membership[]
+  events      Event[]
+}
+
+model Membership {
+  id     String @id @default(cuid())
+  userId String
+  orgId  String
+  role   String @default("MEMBER") // MEMBER | OFFICER | PRESIDENT
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+model Event {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  category    EventCategory
+  startsAt    DateTime
+  endsAt      DateTime
+  location    String
+  isRemote    Boolean       @default(false)
+  capacity    Int           @default(50)
+  xpReward    Int           @default(50)
+  isCsmSpecific Boolean     @default(true)
+  orgId       String?
+  org         Organization? @relation(fields: [orgId], references: [id])
+  competencyTag String?
+
+  rsvps       Rsvp[]
+  checkIns    CheckIn[]
+  reflections Reflection[]
+  badges      Badge[]       @relation("EventBadges")
+}
+
+model Rsvp {
+  id        String     @id @default(cuid())
+  userId    String
+  eventId   String
+  status    RsvpStatus @default(GOING)
+  createdAt DateTime   @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+}
+
+model CheckIn {
+  id        String        @id @default(cuid())
+  userId    String
+  eventId   String
+  method    CheckInMethod @default(QR)
+  xpAwarded Int           @default(0)
+  createdAt DateTime      @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+}
+
+model Reflection {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  content   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Gamification
+// ---------------------------------------------------------------------------
+
+model Badge {
+  id          String  @id @default(cuid())
+  name        String
+  description String
+  category    String
+  icon        String  @default("award")
+  tier        String  @default("bronze") // bronze | silver | gold | platinum
+  xpValue     Int     @default(100)
+
+  userBadges UserBadge[]
+  events     Event[]     @relation("EventBadges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  progress  Int      @default(100) // percent toward earning
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+model XpTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Pathways & competencies
+// ---------------------------------------------------------------------------
+
+model Pathway {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String
+  category    String
+  estimatedHours Int   @default(20)
+
+  steps    PathwayStep[]
+  progress UserPathwayProgress[]
+}
+
+model PathwayStep {
+  id        String @id @default(cuid())
+  pathwayId String
+  title     String
+  detail    String
+  order     Int
+
+  pathway Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+}
+
+model UserPathwayProgress {
+  id            String         @id @default(cuid())
+  userId        String
+  pathwayId     String
+  status        ProgressStatus @default(IN_PROGRESS)
+  completedSteps Int           @default(0)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pathway Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pathwayId])
+}
+
+model Competency {
+  id          String @id @default(cuid())
+  name        String
+  framework   String @default("NACE") // NACE | CSM
+  description String
+  category    String
+
+  progress UserCompetencyProgress[]
+}
+
+model UserCompetencyProgress {
+  id           String @id @default(cuid())
+  userId       String
+  competencyId String
+  level        Int    @default(1) // 1-5
+  percent      Int    @default(0)
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, competencyId])
+}
+
+// ---------------------------------------------------------------------------
+// Credentials
+// ---------------------------------------------------------------------------
+
+model Credential {
+  id          String @id @default(cuid())
+  name        String
+  provider    String
+  careerTrack String
+  major       String
+  cost        String
+  difficulty  String
+  duration    String
+  modality    String
+  description String
+  url         String?
+
+  userCredentials UserCredential[]
+}
+
+model UserCredential {
+  id           String           @id @default(cuid())
+  userId       String
+  credentialId String
+  status       CredentialStatus @default(SAVED)
+  updatedAt    DateTime         @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, credentialId])
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio
+// ---------------------------------------------------------------------------
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  type        String   // PROJECT | FILE | LINK | GITHUB | LINKEDIN
+  url         String?
+  description String
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Mentorship & interviews
+// ---------------------------------------------------------------------------
+
+model MentorshipOpportunity {
+  id          String         @id @default(cuid())
+  mentorId    String
+  kind        MentorshipKind
+  title       String
+  description String
+  careerTrack String
+  expertise   String[]
+  availability String
+  isOpen      Boolean        @default(true)
+
+  mentor       User                    @relation("MentorOpportunities", fields: [mentorId], references: [id], onDelete: Cascade)
+  applications MentorshipApplication[]
+}
+
+model MentorshipApplication {
+  id             String            @id @default(cuid())
+  userId         String
+  opportunityId  String
+  status         ApplicationStatus @default(APPLIED)
+  message        String?
+  createdAt      DateTime          @default(now())
+
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunity MentorshipOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, opportunityId])
+}
+
+model InterviewSlot {
+  id            String   @id @default(cuid())
+  interviewerId String
+  topic         String
+  startsAt      DateTime
+  durationMin   Int      @default(45)
+  modality      String   @default("Remote")
+  isBooked      Boolean  @default(false)
+
+  interviewer User              @relation("InterviewerSlots", fields: [interviewerId], references: [id], onDelete: Cascade)
+  bookings    InterviewBooking[]
+}
+
+model InterviewBooking {
+  id        String   @id @default(cuid())
+  userId    String
+  slotId    String   @unique
+  createdAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slot InterviewSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Co-curricular transcript
+// ---------------------------------------------------------------------------
+
+model TranscriptEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String   // EVENT | LEADERSHIP | SERVICE | CREDENTIAL | BADGE
+  title     String
+  detail    String
+  hours     Float    @default(0)
+  occurredAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
