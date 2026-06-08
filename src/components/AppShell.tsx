@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Avatar } from "@/components/ui/Avatar";
 import { BrandMark } from "@/components/PublicHeader";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { navGroups, navItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/types";
@@ -70,17 +71,17 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex h-16 items-center border-b border-slate-200 px-5">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:flex">
+        <div className="flex h-16 items-center border-b border-slate-200 px-5 dark:border-slate-800">
           <Link href="/dashboard">
             <BrandMark />
           </Link>
         </div>
         {SidebarNav}
-        <div className="border-t border-slate-200 p-3">
-          <div className="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white">
+        <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+          <div className="rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white dark:from-primary-700 dark:to-primary-900">
             <p className="text-xs font-medium opacity-80">Level {level}</p>
             <p className="text-lg font-bold">{totalXp.toLocaleString()} XP</p>
           </div>
@@ -94,8 +95,8 @@ export function AppShell({
             className="absolute inset-0 bg-slate-900/40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-white">
-            <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
+          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-white dark:bg-slate-900">
+            <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-slate-800">
               <BrandMark />
               <button onClick={() => setMobileOpen(false)} aria-label="Close menu">
                 <Icon name="plus" className="h-5 w-5 rotate-45 text-slate-500" />
@@ -108,7 +109,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
           <button
             className="lg:hidden"
             onClick={() => setMobileOpen(true)}
@@ -128,13 +129,14 @@ export function AppShell({
             <input
               type="search"
               placeholder="Search events, badges, mentors…"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-primary-600 dark:focus:bg-slate-900 dark:focus:ring-primary-900"
             />
           </div>
 
           <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
             <button
-              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
               aria-label="Notifications"
             >
               <Icon name="bell" className="h-5 w-5" />
@@ -155,28 +157,28 @@ export function AppShell({
                 </span>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-card-hover">
-                  <div className="border-b border-slate-100 px-3 py-2">
-                    <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-card-hover dark:border-slate-700 dark:bg-slate-900">
+                  <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{user.name}</p>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
                   </div>
                   <Link
                     href="/settings"
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     <Icon name="settings" className="h-4 w-4" /> Settings
                   </Link>
                   <Link
                     href="/portfolio"
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     <Icon name="folder" className="h-4 w-4" /> My Portfolio
                   </Link>
                   <button
                     onClick={logout}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                   >
                     <Icon name="logout" className="h-4 w-4" /> Sign out
                   </button>

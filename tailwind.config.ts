@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/app/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}",
@@ -9,7 +10,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Marist-inspired brand palette (configurable).
+        // Marist Red as primary color (official branding)
+        primary: {
+          50: "#fdf4f6",
+          100: "#fce7ec",
+          200: "#f8c4d2",
+          300: "#f095ab",
+          400: "#e35a7c",
+          500: "#c8315a",
+          600: "#a01f34", // Marist Red official
+          700: "#870f35",
+          800: "#6f0f2f",
+          900: "#5d112b",
+          950: "#350417",
+        },
+        // Brand palette (legacy support)
         brand: {
           50: "#fdf2f5",
           100: "#fce7ec",

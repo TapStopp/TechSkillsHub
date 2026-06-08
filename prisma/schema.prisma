@@ -1,4 +1,4 @@
-// TechSkillsHub Prisma schema — PostgreSQL.
+// TechSkillsHub Prisma schema — SQLite (development) / PostgreSQL (production).
 // Run: npx prisma migrate dev  then  npx prisma db seed
 
 generator client {
@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -76,6 +76,46 @@ enum ApplicationStatus {
   MATCHED
 }
 
+enum Role {
+  President
+  VicePresident
+  Secretary
+  Treasurer
+  Advisor
+  SystemAdmin
+  Faculty
+  Student
+  Other
+}
+
+enum CredentialProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  COMPLETED_WITH_PROOF
+  VERIFIED
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum CompanyType {
+  FAANG
+  STARTUP
+  ENTERPRISE
+  NONPROFIT
+}
+
+enum Semester {
+  SPRING
+  FALL
+  SUMMER
+}
+
 // ---------------------------------------------------------------------------
 // Core identity
 // ---------------------------------------------------------------------------
@@ -85,6 +125,9 @@ model User {
   email         String    @unique
   name          String
   role          UserRole  @default(STUDENT)
+  clubRole      Role?     @default(Student)
+  club          String?   // Club name/ID user is associated with
+  department    String?   // CS, Cybersecurity, IT, Math, Game Design, etc.
   avatarColor   String    @default("#a4123f")
   title         String?
   company       String?
@@ -107,6 +150,29 @@ model User {
   interviewSlots InterviewSlot[] @relation("InterviewerSlots")
   transcriptEntries TranscriptEntry[]
   xpTransactions XpTransaction[]
+  
+  // Club & follow relationships
+  clubMemberships ClubMember[]
+  clubFollows UserClubFollow[]
+  announcementsPoster ClubAnnouncement[] @relation("AnnouncementPostedBy")
+  
+  // Credential tracking
+  credentialProgress UserCredentialProgress[]
+  credentialVerifications UserCredentialProgress[] @relation("VerifiedBy")
+  
+  // Micro-projects
+  microProjects UserMicroProject[]
+  projectApprovals UserMicroProject[] @relation("ApprovedBy")
+  
+  // Interview challenges
+  interviewSubmissions InterviewSubmission[]
+  interviewFeedback InterviewFeedback[]
+  
+  // Admin & audit
+  auditLogs AuditLog[]
+  
+  // Faculty
+  faculty Faculty?
 }
 
 model StudentProfile {
@@ -438,4 +504,222 @@ model TranscriptEntry {
   occurredAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Clubs & Community
+// ---------------------------------------------------------------------------
+
+model Club {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique
+  description   String
+  location      String?
+  meetingTimes  String?  // JSON: [{day: "Monday", time: "5:00 PM"}, ...]
+  meetingDays   String[] // ["Monday", "Wednesday"]
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members       ClubMember[]
+  announcements ClubAnnouncement[]
+  followers     UserClubFollow[]
+}
+
+model ClubMember {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  role      Role     @default(Student)
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId, clubId])
+}
+
+model ClubAnnouncement {
+  id           String   @id @default(cuid())
+  clubId       String
+  club         Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  title        String
+  content      String
+  attachmentUrl String? // URL to PDF or file
+  year         Int?     // 2026
+  semester     Semester? // SPRING, FALL, SUMMER
+  postedById   String
+  postedBy     User     @relation("AnnouncementPostedBy", fields: [postedById], references: [id], onDelete: Cascade)
+  archived     Boolean  @default(false)
+  postedAt     DateTime @default(now())
+}
+
+model UserClubFollow {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  followedAt DateTime @default(now())
+
+  @@unique([userId, clubId])
+}
+
+// ---------------------------------------------------------------------------
+// Credentials & Roadmaps
+// ---------------------------------------------------------------------------
+
+model Roadmap {
+  id               String   @id @default(cuid())
+  title            String   @unique
+  slug             String   @unique
+  description      String
+  category         String   // Cybersecurity, Cloud Engineering, Software Dev, Data/AI, etc.
+  difficulty       Difficulty @default(INTERMEDIATE)
+  estimatedHours   Int      @default(40)
+  icon             String   @default("rocket")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  steps RoadmapStep[]
+}
+
+model RoadmapStep {
+  id               String   @id @default(cuid())
+  roadmapId        String
+  roadmap          Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  stepNumber       Int
+  title            String
+  description      String
+  credentialId     String?
+  competencyIds    String[] // JSON array of competency IDs
+  estimatedHours   Int      @default(5)
+  reasoning        String   // Why this step matters
+}
+
+model UserCredentialProgress {
+  id               String   @id @default(cuid())
+  userId           String
+  credentialId     String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential       Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  status           CredentialProgressStatus @default(NOT_STARTED)
+  completedAt      DateTime?
+  proofFileUrl     String?  // URL to uploaded proof (PDF/screenshot)
+  verifiedById     String?  // User who verified
+  verifiedBy       User?    @relation("VerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt       DateTime?
+
+  @@unique([userId, credentialId])
+}
+
+// ---------------------------------------------------------------------------
+// Micro-Projects & Portfolio
+// ---------------------------------------------------------------------------
+
+model UserMicroProject {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  githubUrl        String?
+  demoUrl          String?
+  screenshotUrl    String?  // Original uploaded image
+  thumbnailUrl     String?  // 150x150 thumbnail (Sharp processed)
+  mediumImageUrl   String?  // 400x400 medium (Sharp processed)
+  submittedAt      DateTime @default(now())
+  approvedById     String?  // Admin who approved
+  approvedBy       User?    @relation("ApprovedBy", fields: [approvedById], references: [id])
+  featured         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Interview Challenges & Prep
+// ---------------------------------------------------------------------------
+
+model InterviewChallenge {
+  id               String   @id @default(cuid())
+  title            String   @unique
+  description      String
+  prompt           String   // The challenge text/code/prompt
+  difficulty       Difficulty @default(INTERMEDIATE)
+  companyType      CompanyType? // FAANG, startup, etc.
+  category         String   // Coding, Systems Design, Cloud, etc.
+  sampleSolution   String?  // Example solution
+  createdAt        DateTime @default(now())
+
+  submissions InterviewSubmission[]
+}
+
+model InterviewSubmission {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId      String
+  challenge        InterviewChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  code             String   // Submitted solution code
+  submittedAt      DateTime @default(now())
+  feedbackRequested Boolean  @default(false)
+
+  feedback InterviewFeedback?
+}
+
+model InterviewFeedback {
+  id               String   @id @default(cuid())
+  submissionId     String   @unique
+  submission       InterviewSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  feedback         String   // Feedback text
+  score            Int?     // 1-100
+  createdById      String
+  createdBy        User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Faculty & Mentorship
+// ---------------------------------------------------------------------------
+
+model Faculty {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department       String   // CS, Cybersecurity, IT, Math, Game Design, etc.
+  officeHours      String?  // JSON: [{day: "Monday", time: "2:00 PM", location: "..."}, ...]
+  expertiseAreas   String[] // ["AI", "Cybersecurity", "Game Development"]
+  linkedCredentials String[] // Credential IDs related to this faculty
+  linkedChallenges String[] // Challenge IDs related to this faculty
+  createdAt        DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Employer Skills & Analytics
+// ---------------------------------------------------------------------------
+
+model EmployerSkillDemand {
+  id               String   @id @default(cuid())
+  skill            String   @unique
+  demandPercent    Float    @default(0) // 0-100
+  relatedCompanies String[] // ["Google", "Microsoft", "Amazon"]
+  jobPostings      Int      @default(0)
+  updatedAt        DateTime @updatedAt
+  source           String   @default("external_api") // external_api, manual, etc.
+}
+
+// ---------------------------------------------------------------------------
+// Audit & Compliance
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id               String   @id @default(cuid())
+  action           String   // "role_changed", "proof_verified", "project_approved", etc.
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType       String?  // "User", "Credential", "Project", etc.
+  targetId         String?  // ID of the affected resource
+  changes          String?  // JSON: what changed
+  timestamp        DateTime @default(now())
 }

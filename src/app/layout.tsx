@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "TechSkillsHub · Marist CSM",
@@ -14,9 +15,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <ToastProvider>{children}</ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
